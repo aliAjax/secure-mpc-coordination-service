@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/example/027-mpc-coordinator/internal/application"
 	"github.com/example/027-mpc-coordinator/internal/domain"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -27,7 +28,7 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("/api/v1/rounds/", s.round)
 	m.HandleFunc("/api/v1/evidence/", s.evidence)
 	m.HandleFunc("/metrics", s.metrics)
-	return requestLog(m, s.log)
+	return requestLog(Middleware(m), s.log)
 }
 func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
 	write(w, http.StatusOK, map[string]string{"status": "ok", "service": "mpc-coordinator"})
@@ -207,12 +208,28 @@ func pathParts(path, prefix string) (string, string) {
 	return parts[0], a
 }
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {
-	de := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
-	if e := de.Decode(v); e != nil {
+	defer drainAndClose(r.Body)
+	// r.Body is already wrapped by httputil.Limit at the middleware layer;
+	// re-wrapping here would nest a MaxBytesReader whose ResponseWriter is
+	// the recorder, masking the server's connection-close signal.
+	if e := json.NewDecoder(r.Body).Decode(v); e != nil {
 		fail(w, domain.ErrInvalid)
 		return false
 	}
 	return true
+}
+
+// drainAndClose consumes any unread portion of the request body and closes
+// it so the underlying connection is released promptly. For oversized bodies
+// the read errors once MaxBytesReader trips; those errors are expected and
+// intentionally ignored so the drain still completes and the connection is
+// not left holding unread bytes.
+func drainAndClose(body io.ReadCloser) {
+	if body == nil {
+		return
+	}
+	_, _ = io.Copy(io.Discard, body)
+	_ = body.Close()
 }
 func write(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
