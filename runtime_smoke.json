@@ -1,0 +1,14 @@
+{
+  "project_intro": "基于 Go 实现的安全多方计算协调服务项目，一款后端服务，完成计算任务状态流转、秘密分享分片收集与结果证据记录。",
+  "mode": "service",
+  "start": "go run ./cmd/mpc-coordinator",
+  "workdir": ".",
+  "env": {
+    "MPC_HTTP_ADDR": ":18080"
+  },
+  "ready_url": "http://127.0.0.1:18080/healthz",
+  "ready_status": [
+    200
+  ],
+  "startup_timeout": 25
+}
