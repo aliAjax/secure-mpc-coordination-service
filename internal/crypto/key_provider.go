@@ -45,4 +45,9 @@ func (p *SimulatedKeyProvider) Rotate(id string) error {
 	p.keys[id] = k
 	return nil
 }
-func KeyID(k []byte) string { return hex.EncodeToString(k[:8]) }
+func KeyID(k []byte) string {
+	if len(k) >= 8 {
+		return hex.EncodeToString(k[:8])
+	}
+	return hex.EncodeToString(k)
+}

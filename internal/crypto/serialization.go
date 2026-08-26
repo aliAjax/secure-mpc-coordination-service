@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"math/big"
 )
 
@@ -21,11 +22,14 @@ func DecodeShare(v string) (SharePoint, error) {
 	}
 	var s SharePoint
 	if len(b) == 0 {
-		return SharePoint{}, nil
+		return SharePoint{}, errors.New("empty share encoding")
 	}
 	e = json.Unmarshal(b, &s)
 	if e != nil {
 		return SharePoint{}, e
+	}
+	if s.Index <= 0 || s.Value == "" {
+		return SharePoint{}, errors.New("invalid share")
 	}
 	return s, nil
 }

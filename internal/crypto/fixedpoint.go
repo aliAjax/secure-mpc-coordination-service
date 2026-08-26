@@ -14,6 +14,9 @@ func (f FixedPoint) Decode(v *big.Int) (int64, error) {
 	if f.Scale <= 0 {
 		return 0, errors.New("invalid scale")
 	}
+	if v == nil {
+		return 0, errors.New("nil encoded value")
+	}
 	q := new(big.Int).Quo(v, big.NewInt(f.Scale))
 	if !q.IsInt64() {
 		return 0, errors.New("decoded overflow")

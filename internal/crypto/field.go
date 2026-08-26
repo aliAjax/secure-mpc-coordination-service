@@ -9,15 +9,42 @@ import (
 var Prime, _ = new(big.Int).SetString("170141183460469231731687303715884105727", 10)
 
 func Normalize(v *big.Int) *big.Int {
+	if v == nil {
+		return big.NewInt(0)
+	}
 	x := new(big.Int).Mod(new(big.Int).Set(v), Prime)
 	if x.Sign() < 0 {
 		x.Add(x, Prime)
 	}
 	return x
 }
-func Add(a, b *big.Int) *big.Int { return Normalize(new(big.Int).Add(a, b)) }
-func Mul(a, b *big.Int) *big.Int { return Normalize(new(big.Int).Mul(a, b)) }
-func Sub(a, b *big.Int) *big.Int { return Normalize(new(big.Int).Sub(a, b)) }
+func Add(a, b *big.Int) *big.Int {
+	if a == nil {
+		a = big.NewInt(0)
+	}
+	if b == nil {
+		b = big.NewInt(0)
+	}
+	return Normalize(new(big.Int).Add(a, b))
+}
+func Mul(a, b *big.Int) *big.Int {
+	if a == nil {
+		a = big.NewInt(0)
+	}
+	if b == nil {
+		b = big.NewInt(0)
+	}
+	return Normalize(new(big.Int).Mul(a, b))
+}
+func Sub(a, b *big.Int) *big.Int {
+	if a == nil {
+		a = big.NewInt(0)
+	}
+	if b == nil {
+		b = big.NewInt(0)
+	}
+	return Normalize(new(big.Int).Sub(a, b))
+}
 func Inv(a *big.Int) (*big.Int, error) {
 	x := Normalize(a)
 	if x.Sign() == 0 {
