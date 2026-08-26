@@ -1,11 +1,11 @@
 package transport
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"github.com/example/027-mpc-coordinator/internal/application"
 	"github.com/example/027-mpc-coordinator/internal/domain"
+	"github.com/example/027-mpc-coordinator/internal/observability"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -41,7 +41,7 @@ func (s *Server) computations(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		out, e := s.svc.List(r.Context())
 		if e != nil {
-			fail(w, e)
+			fail(w, r, e)
 			return
 		}
 		write(w, http.StatusOK, map[string]any{"items": out, "count": len(out)})
@@ -52,7 +52,7 @@ func (s *Server) computations(w http.ResponseWriter, r *http.Request) {
 		}
 		c, e := s.svc.Create(r.Context(), req, r.Header.Get("Idempotency-Key"))
 		if e != nil {
-			fail(w, e)
+			fail(w, r, e)
 			return
 		}
 		write(w, http.StatusCreated, c)
@@ -63,7 +63,7 @@ func (s *Server) computations(w http.ResponseWriter, r *http.Request) {
 func (s *Server) computation(w http.ResponseWriter, r *http.Request) {
 	id, action := pathParts(r.URL.Path, "/api/v1/computations/")
 	if id == "" {
-		fail(w, domain.ErrNotFound)
+		fail(w, r, domain.ErrNotFound)
 		return
 	}
 	switch action {
@@ -74,7 +74,7 @@ func (s *Server) computation(w http.ResponseWriter, r *http.Request) {
 		}
 		c, e := s.svc.Get(r.Context(), id)
 		if e != nil {
-			fail(w, e)
+			fail(w, r, e)
 			return
 		}
 		write(w, http.StatusOK, c)
@@ -85,7 +85,7 @@ func (s *Server) computation(w http.ResponseWriter, r *http.Request) {
 		}
 		rnd, e := s.svc.Start(r.Context(), id)
 		if e != nil {
-			fail(w, e)
+			fail(w, r, e)
 			return
 		}
 		write(w, http.StatusCreated, rnd)
@@ -95,7 +95,7 @@ func (s *Server) computation(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if e := s.svc.Abort(r.Context(), id); e != nil {
-			fail(w, e)
+			fail(w, r, e)
 			return
 		}
 		write(w, http.StatusOK, map[string]string{"status": "aborted"})
@@ -113,7 +113,7 @@ func (s *Server) computation(w http.ResponseWriter, r *http.Request) {
 		}
 		res, e := s.svc.DemoShares(r.Context(), id, req.RoundID, req.Secret)
 		if e != nil {
-			fail(w, e)
+			fail(w, r, e)
 			return
 		}
 		write(w, http.StatusOK, res)
@@ -128,7 +128,7 @@ func (s *Server) computation(w http.ResponseWriter, r *http.Request) {
 		}
 		p, e := s.svc.RegisterParticipant(r.Context(), id, req)
 		if e != nil {
-			fail(w, e)
+			fail(w, r, e)
 			return
 		}
 		write(w, http.StatusCreated, p)
@@ -145,12 +145,12 @@ func (s *Server) computation(w http.ResponseWriter, r *http.Request) {
 		}
 		out, e := s.svc.Reconstruct(r.Context(), id, req.RoundID)
 		if e != nil {
-			fail(w, e)
+			fail(w, r, e)
 			return
 		}
 		write(w, http.StatusOK, out)
 	default:
-		fail(w, domain.ErrNotFound)
+		fail(w, r, domain.ErrNotFound)
 	}
 }
 func (s *Server) round(w http.ResponseWriter, r *http.Request) {
@@ -175,7 +175,7 @@ func (s *Server) round(w http.ResponseWriter, r *http.Request) {
 	}
 	rnd, e := s.svc.SubmitShare(r.Context(), id, domain.Share{ParticipantID: req.ParticipantID, Index: req.Index, Value: req.Value, Commitment: req.Commitment, Signature: req.Signature}, owner)
 	if e != nil {
-		fail(w, e)
+		fail(w, r, e)
 		return
 	}
 	write(w, http.StatusAccepted, rnd)
@@ -188,12 +188,20 @@ func (s *Server) evidence(w http.ResponseWriter, r *http.Request) {
 	}
 	items, e := s.svc.Evidence(r.Context(), id)
 	if e != nil {
-		fail(w, e)
+		fail(w, r, e)
 		return
 	}
 	write(w, http.StatusOK, map[string]any{"items": items})
 }
-func (s *Server) reconstruct(w http.ResponseWriter, r *http.Request) { _ = context.Background() }
+func (s *Server) reconstruct(w http.ResponseWriter, r *http.Request) {
+	id, _ := pathParts(r.URL.Path, "/api/v1/computations/")
+	out, e := s.svc.Reconstruct(r.Context(), id, "")
+	if e != nil {
+		fail(w, r, e)
+		return
+	}
+	write(w, http.StatusOK, out)
+}
 func pathParts(path, prefix string) (string, string) {
 	rest := strings.TrimPrefix(path, prefix)
 	parts := strings.Split(strings.Trim(rest, "/"), "/")
@@ -209,7 +217,7 @@ func pathParts(path, prefix string) (string, string) {
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	de := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
 	if e := de.Decode(v); e != nil {
-		fail(w, domain.ErrInvalid)
+		fail(w, r, domain.ErrInvalid)
 		return false
 	}
 	return true
@@ -219,7 +227,7 @@ func write(w http.ResponseWriter, status int, v any) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }
-func fail(w http.ResponseWriter, e error) {
+func fail(w http.ResponseWriter, r *http.Request, e error) {
 	status := http.StatusInternalServerError
 	switch {
 	case errors.Is(e, domain.ErrNotFound):
@@ -229,14 +237,16 @@ func fail(w http.ResponseWriter, e error) {
 	case errors.Is(e, domain.ErrConflict), errors.Is(e, domain.ErrReplay), errors.Is(e, domain.ErrLeaseLost):
 		status = http.StatusConflict
 	}
-	write(w, status, map[string]any{"error": map[string]string{"code": http.StatusText(status), "message": e.Error()}})
+	write(w, status, map[string]any{"error": map[string]string{"code": http.StatusText(status), "message": e.Error()}, "trace_id": observability.TraceID(r.Context())})
 }
 func requestLog(next http.Handler, l *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
+		ctx := observability.WithTrace(r.Context())
+		r = r.WithContext(ctx)
 		next.ServeHTTP(w, r)
 		if l != nil {
-			l.Info("http_request", "method", r.Method, "path", r.URL.Path, "duration_ms", time.Since(start).Milliseconds())
+			observability.LogContext(l, ctx, "http_request", "method", r.Method, "path", r.URL.Path, "duration_ms", time.Since(start).Milliseconds())
 		}
 	})
 }

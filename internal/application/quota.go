@@ -21,7 +21,12 @@ func (q *QuotaManager) SetLimit(tenant string, b domain.ResourceBudget) {
 	defer q.mu.Unlock()
 	q.limits[tenant] = b
 }
-func (q *QuotaManager) Reserve(_ context.Context, tenant string, b domain.ResourceBudget) error {
+func (q *QuotaManager) Reserve(ctx context.Context, tenant string, b domain.ResourceBudget) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	limit := q.limits[tenant]
@@ -41,7 +46,12 @@ func (q *QuotaManager) Reserve(_ context.Context, tenant string, b domain.Resour
 	q.used[tenant] = used
 	return nil
 }
-func (q *QuotaManager) Release(_ context.Context, tenant string, b domain.ResourceBudget) {
+func (q *QuotaManager) Release(ctx context.Context, tenant string, b domain.ResourceBudget) {
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	u := q.used[tenant]
