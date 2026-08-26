@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 	"sort"
 )
@@ -11,6 +12,7 @@ import (
 var (
 	ErrThresholdNotMet = errors.New("threshold not met")
 	ErrDuplicateShare  = errors.New("duplicate/invalid share index")
+	ErrInvalidSplitArg = errors.New("invalid split arguments")
 )
 
 type SharePoint struct {
@@ -20,7 +22,7 @@ type SharePoint struct {
 
 func Split(secret *big.Int, threshold, count int) ([]SharePoint, error) {
 	if threshold < 2 || count < threshold || count > 255 {
-		return nil, errors.New("invalid threshold/count")
+		return nil, fmt.Errorf("%w: threshold=%d count=%d", ErrInvalidSplitArg, threshold, count)
 	}
 	coeff := make([]*big.Int, threshold)
 	coeff[0] = Normalize(secret)
@@ -48,20 +50,20 @@ func Split(secret *big.Int, threshold, count int) ([]SharePoint, error) {
 }
 
 func Reconstruct(points []SharePoint, threshold int) (*big.Int, error) {
-	if len(points) < threshold || threshold < 2 {
-		return nil, errors.New("threshold not met")
+	if threshold < 2 || len(points) < threshold {
+		return nil, fmt.Errorf("%w: have %d shares, need %d", ErrThresholdNotMet, len(points), threshold)
 	}
 	uniq := map[int]bool{}
 	selected := points[:threshold]
 	for _, p := range selected {
 		if p.Index <= 0 || uniq[p.Index] {
-			return nil, errors.New("duplicate/invalid share index")
+			return nil, fmt.Errorf("%w: index %d", ErrDuplicateShare, p.Index)
 		}
 		uniq[p.Index] = true
 	}
 	for _, p := range selected {
 		if _, e := FromDecimal(p.Value); e != nil {
-			return nil, e
+			return nil, fmt.Errorf("share %d: %w", p.Index, e)
 		}
 	}
 	result := big.NewInt(0)

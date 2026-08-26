@@ -3,6 +3,7 @@ package crypto
 import (
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"math/big"
 )
 
@@ -34,10 +35,10 @@ func Random() (*big.Int, error) { return rand.Int(rand.Reader, Prime) }
 func FromDecimal(s string) (*big.Int, error) {
 	x, ok := new(big.Int).SetString(s, 10)
 	if !ok {
-		return nil, errors.New("invalid field integer")
+		return nil, fmt.Errorf("%w: %q", ErrFieldInvalid, s)
 	}
 	if x.Sign() < 0 || x.Cmp(Prime) >= 0 {
-		return nil, errors.New("field integer out of range")
+		return nil, fmt.Errorf("%w: %q", ErrFieldRange, s)
 	}
 	return x, nil
 }

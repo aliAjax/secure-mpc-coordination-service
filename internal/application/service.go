@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/example/027-mpc-coordinator/internal/crypto"
 	"github.com/example/027-mpc-coordinator/internal/domain"
@@ -141,7 +142,7 @@ func (s *Service) SubmitShare(ctx context.Context, rid string, sh domain.Share, 
 		return nil, fmt.Errorf("%w: commitment", domain.ErrInvalid)
 	}
 	if _, e = crypto.FromDecimal(sh.Value); e != nil {
-		return nil, e
+		return nil, bridgeCryptoErr(e)
 	}
 	sh.SubmittedAt = time.Now().UTC()
 	r.Shares[sh.ParticipantID] = sh
@@ -177,6 +178,7 @@ func (s *Service) Reconstruct(ctx context.Context, cid, rid string) (*domain.Out
 	}
 	secret, e := crypto.Reconstruct(points, c.Threshold)
 	if e != nil {
+		e = bridgeCryptoErr(e)
 		_ = domain.TransitionComputation(c, domain.StatusAborted)
 		_ = s.store.UpdateComputation(ctx, c)
 		return nil, e
@@ -225,6 +227,20 @@ func newID(prefix string) string {
 	return prefix + "_" + hex.EncodeToString(b)
 }
 
+func bridgeCryptoErr(e error) error {
+	switch {
+	case errors.Is(e, crypto.ErrThresholdNotMet):
+		return fmt.Errorf("%w: %w", domain.ErrThreshold, e)
+	case errors.Is(e, crypto.ErrDuplicateShare),
+		errors.Is(e, crypto.ErrFieldInvalid),
+		errors.Is(e, crypto.ErrFieldRange),
+		errors.Is(e, crypto.ErrInvalidSplitArg):
+		return fmt.Errorf("%w: %w", domain.ErrInvalid, e)
+	default:
+		return e
+	}
+}
+
 type DemoShareResult struct {
 	Secret string         `json:"secret"`
 	Shares []domain.Share `json:"shares"`
@@ -244,7 +260,7 @@ func (s *Service) DemoShares(ctx context.Context, cid, rid, secret string) (Demo
 	}
 	pts, e := crypto.Split(v, c.Threshold, c.ParticipantCount)
 	if e != nil {
-		return DemoShareResult{}, e
+		return DemoShareResult{}, bridgeCryptoErr(e)
 	}
 	out := DemoShareResult{Secret: secret}
 	for i, p := range pts {
