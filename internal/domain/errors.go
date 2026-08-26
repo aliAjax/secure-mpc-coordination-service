@@ -12,8 +12,5 @@ var (
 )
 
 func IsNotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-	return err == ErrNotFound
+	return errors.Is(err, ErrNotFound)
 }

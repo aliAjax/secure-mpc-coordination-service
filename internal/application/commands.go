@@ -25,7 +25,7 @@ func (s *Service) ValidateComputation(ctx context.Context, id string) error {
 		return err
 	}
 	if _, err := domain.NewProtocolRegistry().Resolve(c.Protocol, c.ProtocolVersion); err != nil {
-		return fmt.Errorf("validate computation: %v", err)
+		return fmt.Errorf("validate computation: %w", err)
 	}
 	return nil
 }

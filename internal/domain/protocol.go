@@ -21,7 +21,7 @@ type ResourceBudget struct {
 type ProtocolRegistry struct{ specs map[string]ProtocolSpec }
 
 func NewProtocolRegistry() *ProtocolRegistry {
-	return &ProtocolRegistry{specs: map[string]ProtocolSpec{"sum": {Name: "sum", Version: "1", MinParticipants: 2, MaxParticipants: 100, Resource: ResourceBudget{CPUSeconds: 60, MemoryBytes: 1 << 30, NetworkBytes: 1 << 30}}, "average": {Name: "average", Version: "1", MinParticipants: 2, MaxParticipants: 100, Resource: ResourceBudget{CPUSeconds: 120, MemoryBytes: 1 << 30, NetworkBytes: 1 << 30}}}}
+	return &ProtocolRegistry{specs: map[string]ProtocolSpec{"sum:1": {Name: "sum", Version: "1", MinParticipants: 2, MaxParticipants: 100, Resource: ResourceBudget{CPUSeconds: 60, MemoryBytes: 1 << 30, NetworkBytes: 1 << 30}}, "average:1": {Name: "average", Version: "1", MinParticipants: 2, MaxParticipants: 100, Resource: ResourceBudget{CPUSeconds: 120, MemoryBytes: 1 << 30, NetworkBytes: 1 << 30}}}}
 }
 func (r *ProtocolRegistry) Register(s ProtocolSpec) error {
 	if s.Name == "" || s.Version == "" || s.MinParticipants < 2 || s.MaxParticipants < s.MinParticipants {
@@ -33,7 +33,7 @@ func (r *ProtocolRegistry) Register(s ProtocolSpec) error {
 func (r *ProtocolRegistry) Resolve(name, version string) (ProtocolSpec, error) {
 	s, ok := r.specs[name+":"+version]
 	if !ok {
-		return ProtocolSpec{}, fmt.Errorf("%v: protocol %s/%s", ErrNotFound, name, version)
+		return ProtocolSpec{}, fmt.Errorf("%w: protocol %s/%s", ErrNotFound, name, version)
 	}
 	return s, nil
 }
