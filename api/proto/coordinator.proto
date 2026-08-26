@@ -1,0 +1,10 @@
+syntax = "proto3";
+package mpc.v1;
+option go_package = "github.com/example/027-mpc-coordinator/api/proto;mpcv1";
+service Coordinator { rpc Register(RegisterRequest) returns (Participant); rpc SubmitShare(ShareRequest) returns (Round); rpc Ack(AckRequest) returns (AckResponse); }
+message RegisterRequest { string computation_id = 1; string participant_id = 2; string capability = 3; }
+message Participant { string id = 1; string computation_id = 2; string capability = 3; }
+message ShareRequest { string round_id = 1; string participant_id = 2; int32 index = 3; string value = 4; string commitment = 5; }
+message Round { string id = 1; string status = 2; int32 share_count = 3; }
+message AckRequest { string round_id = 1; string participant_id = 2; }
+message AckResponse { bool accepted = 1; }
