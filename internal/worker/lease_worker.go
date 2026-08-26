@@ -13,30 +13,43 @@ type LeaseWorker struct {
 	log      *slog.Logger
 	interval time.Duration
 	stop     chan struct{}
+	stopOnce sync.Once
 	wg       sync.WaitGroup
 }
 
 func NewLeaseWorker(s repository.Store, l *slog.Logger) *LeaseWorker {
 	return &LeaseWorker{store: s, log: l, interval: 5 * time.Second, stop: make(chan struct{})}
 }
-func (w *LeaseWorker) Start(ctx context.Context) { go w.loop(ctx) }
+func (w *LeaseWorker) Start(ctx context.Context) {
+	w.wg.Add(1)
+	go w.loop(ctx)
+}
 func (w *LeaseWorker) Stop() {
-	close(w.stop)
+	w.stopOnce.Do(func() { close(w.stop) })
 	w.wg.Wait()
 }
 func (w *LeaseWorker) loop(ctx context.Context) {
-	w.wg.Add(1)
 	defer w.wg.Done()
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
 	for {
 		select {
-		case <-ticker.C:
-			w.reap(ctx)
 		case <-w.stop:
 			return
 		case <-ctx.Done():
 			return
+		case <-ticker.C:
+			// A tick may race with Stop/ctx cancellation; re-check the
+			// shutdown signals so we never start another scan round after
+			// the worker has been asked to stop.
+			select {
+			case <-w.stop:
+				return
+			case <-ctx.Done():
+				return
+			default:
+			}
+			w.reap(ctx)
 		}
 	}
 }
