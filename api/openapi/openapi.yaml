@@ -1,0 +1,17 @@
+openapi: 3.0.3
+info:
+  title: MPC Coordinator API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /healthz: {get: {responses: {"200": {description: OK}}}}
+  /readyz: {get: {responses: {"200": {description: Ready}}}}
+  /api/v1/computations:
+    get: {responses: {"200": {description: List computations}}}
+    post:
+      parameters: [{name: Idempotency-Key, in: header, required: false, schema: {type: string}}]
+      responses: {"201": {description: Created}}
+  /api/v1/computations/{id}/start: {post: {responses: {"201": {description: Round started}}}}
+  /api/v1/computations/{id}/reconstruct: {post: {responses: {"200": {description: Output}}}}
+  /api/v1/rounds/{id}/shares: {post: {responses: {"202": {description: Accepted}}}}

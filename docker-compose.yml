@@ -1,0 +1,8 @@
+services:
+  mpc-coordinator:
+    build: .
+    ports: ["8080:8080"]
+    environment: ["MPC_HTTP_ADDR=:8080", "MPC_STATE_FILE=/data/state.json"]
+    volumes: ["mpc-data:/data"]
+volumes:
+  mpc-data: {}
