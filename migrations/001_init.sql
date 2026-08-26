@@ -1,0 +1,3 @@
+-- Reference schema for a PostgreSQL adapter. The default runtime uses JSON snapshot storage.
+CREATE TABLE computations (id text PRIMARY KEY, tenant_id text NOT NULL, protocol text NOT NULL, status text NOT NULL, threshold integer NOT NULL, participant_count integer NOT NULL, input_commitment text, version bigint NOT NULL, created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL);
+CREATE TABLE rounds (id text PRIMARY KEY, computation_id text NOT NULL REFERENCES computations(id), number integer NOT NULL, nonce text NOT NULL, status text NOT NULL, deadline timestamptz NOT NULL, lease_owner text, lease_until timestamptz, version bigint NOT NULL, UNIQUE(computation_id, number));
