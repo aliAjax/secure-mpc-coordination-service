@@ -38,6 +38,8 @@ func (s *Service) Create(ctx context.Context, r CreateRequest, idem string) (*do
 		return nil, domain.ErrInvalid
 	}
 	if idem != "" {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 		if id := s.idempotency[idem]; id != "" {
 			return s.store.GetComputation(ctx, id)
 		}
@@ -103,7 +105,7 @@ func (s *Service) AcquireLease(ctx context.Context, rid, owner string, ttl time.
 		return nil, e
 	}
 	now := time.Now().UTC()
-	if r.LeaseOwner != "" && r.LeaseOwner != owner {
+	if r.LeaseOwner != "" && r.LeaseOwner != owner && now.Before(r.LeaseUntil) {
 		return nil, domain.ErrLeaseLost
 	}
 	r.LeaseOwner = owner

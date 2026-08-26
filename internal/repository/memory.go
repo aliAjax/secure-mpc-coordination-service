@@ -33,11 +33,14 @@ func (m *MemoryStore) CreateComputation(_ context.Context, c *domain.Computation
 	return m.persistLocked()
 }
 func (m *MemoryStore) GetComputation(_ context.Context, id string) (*domain.Computation, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	c, ok := m.computations[id]
 	if !ok {
 		return nil, domain.ErrNotFound
 	}
-	return c, nil
+	cp := *c
+	return &cp, nil
 }
 func (m *MemoryStore) UpdateComputation(_ context.Context, c *domain.Computation) error {
 	m.mu.Lock()
@@ -94,7 +97,9 @@ func (m *MemoryStore) GetRound(_ context.Context, id string) (*domain.Round, err
 	if !ok {
 		return nil, domain.ErrNotFound
 	}
-	return r, nil
+	cp := *r
+	cp.Shares = cloneShares(r.Shares)
+	return &cp, nil
 }
 func (m *MemoryStore) UpdateRound(_ context.Context, r *domain.Round) error {
 	m.mu.Lock()
